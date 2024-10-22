@@ -1,0 +1,6 @@
+allowAllUser: true
+cacheAll: true
+cacheDir: ./tmp
+defaultDeviceName: pc1
+defaultPort: 60721
+enableUserName: tcmofashi

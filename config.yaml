@@ -1,0 +1,25 @@
+tcmofashi:
+  allowAllUser: true
+  devicename: test1
+  filemap:
+  - mode: newest
+    name: '1'
+    path: /home/tcmofashi/proj/galsync/test1/1
+  - mode: newest
+    name: '2'
+    path: /home/tcmofashi/proj/galsync/test1/2
+  - mode: newest
+    name: '3'
+    path: /home/tcmofashi/proj/galsync/test1/3
+  - mode: newest
+    name: '4'
+    path: /home/tcmofashi/proj/galsync/test1/4
+  localipv4:
+  - - 10.42.0.32
+    - 60721
+  localipv6: []
+  remoteipv4:
+  - - 10.42.0.32
+    - 50721
+  remoteipv6: []
+  username: tcmofashi
