@@ -1,7 +1,6 @@
 # -*- coding: UTF8 -*-
 import os
 import json
-import timeutils
 import yaml
 import socket
 import datetime
@@ -11,6 +10,19 @@ import io
 import shutil
 import netifaces
 import logging
+
+
+def get_folder_modification_time(folder_path):
+    """
+    获取文件夹的最后修改时间，并将其转换为 ISO 8601 格式的字符串。
+    """
+    # 获取文件夹的最后修改时间的时间戳
+    modification_time_timestamp = os.path.getmtime(folder_path)
+    # 将时间戳转换为 datetime 对象
+    modification_time_datetime = datetime.datetime.fromtimestamp(modification_time_timestamp)
+    # 将 datetime 对象转换为 ISO 8601 格式的字符串
+    modification_time_iso = modification_time_datetime.isoformat()
+    return modification_time_iso
 
 def get_local_ips():
     """获取本机的所有 IPv4 和 IPv6 地址"""
@@ -167,7 +179,7 @@ class Config:
             # self.yaml_cfg[user]['localipv4']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:not x.startswith('127.'),self.local_ip['ipv4']))))
             # self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:x!='::1',self.local_ip['ipv6']))))
             self.yaml_cfg[user]['localipv4']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:not x.startswith('127.'),self.local_ip['ipv4']))))
-            self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:x!='::1',self.local_ip['ipv6']))))
+            self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:(x!='::1') and (not x.startswith('fe80')),self.local_ip['ipv6']))))
 
             self.origin_cfg[user]['ipv4'][self.origin_cfg[user]['devicename']]=self.yaml_cfg[user]['localipv4']
             self.origin_cfg[user]['ipv6'][self.origin_cfg[user]['devicename']]=self.yaml_cfg[user]['localipv6']
@@ -196,7 +208,7 @@ class Config:
         for user in self.origin_cfg.keys():
             for f_key in self.origin_cfg[user]['filemap'].keys():
                 self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
-                    timeutils.get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                    get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
                                                     ['path'][self.origin_cfg[user]['devicename']])
 
         if username is None:
@@ -208,7 +220,7 @@ class Config:
     def merge(self,recv_data):
         for user in self.origin_cfg.keys():
             for f_key in self.origin_cfg[user]['filemap'].keys():
-                self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=timeutils.get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']])
+                self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']])
 
         recv_cfg=json.loads(recv_data)
         others_config=recv_cfg['data']
@@ -322,6 +334,7 @@ class Config:
                     defaultipv6.pop(defaultipv6.index(ipaddr))
             v4.append(self.origin_cfg[self.enableUserName]['ipv4'][key])
             v6.append(self.origin_cfg[self.enableUserName]['ipv6'][key])
+        print([defaultipv4,defaultipv6,v4,v6])
         return [defaultipv4,defaultipv6,v4,v6] #[[ip1,ip2,...],[ip1,ip2,...],...]
         
         

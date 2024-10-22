@@ -7,20 +7,142 @@ import copy
 import logging
 
 BUFFERSIZE=1024
+TIMEOUT=20
+socket.setdefaulttimeout(TIMEOUT)
 
-socket.setdefaulttimeout(300)
+class DataExchange:
 
-# class DataExchange:
+    def cfg_send(self,cacheCfg):
+        self.dataClipCache(cacheCfg.encode())
+        time.sleep(0.5)
+        self.request.sendall('SEND'.encode())
+        data=self.request.recv(BUFFERSIZE)
+        if data.decode(errors='ignore')!='ACK':
+            raise ConnectionResetError('ERROR HANDSHAKE')
+        self.request.sendall(str(len(cacheCfg.encode())).encode())
+        data=self.request.recv(BUFFERSIZE)
+        if data.decode(errors='ignore')!='ACK':
+            raise ConnectionResetError('ERROR HANDSHAKE')
+        while True:
+            response=self.dataClipGet()
+            if not response:
+                self.request.sendall('Fin'.encode())
+                break
+            self.request.sendall(response)
 
-#     def data_send(self):
+    def cfg_recv(self):
+        data=self.request.recv(BUFFERSIZE)
+        if data.decode(errors='ignore')=='SEND':
+            self.request.sendall('ACK'.encode())
+            logging.debug(f'config exchange handshake success')
+        else:
+            raise ConnectionResetError('ERROR HANDSHAKE')
+        data=self.request.recv(BUFFERSIZE)
+        length=int(data.decode())
+        self.request.sendall('ACK'.encode())
+        
+        cfg=b''
+        while True:
+            data=self.request.recv(BUFFERSIZE)
+            if length-len(cfg)>len(data):
+                cfg+=data
+            else:
+                logging.debug('length expand')
+                cfg+=data
+                if cfg[length:].decode() =='Fin':
+                    break
+        sync.CONFIG.merge(cfg[:length].decode(errors='ignore'))
 
+    def data_recv(self):
+        #recv
+        data=self.request.recv(BUFFERSIZE)
+        if data.decode(errors='ignore')=='SEND':
+            self.request.sendall('ACK'.encode())
+        else:
+            raise ConnectionResetError('ERROR HANDSHAKE')
+        name=None
+        length=None
+        recv_data=b''
+        while True:
+            data=self.request.recv(BUFFERSIZE*1024*8)
+            if name is None:
+                if data.decode(errors='ignore')=='FinAll':
+                    break
+                name=data.decode(errors='ignore')
+                self.request.sendall('ACK'.encode())
+                logging.debug(f'recv {data.decode(errors='ignore')}')
+                data=self.request.recv(BUFFERSIZE)
+                length=int(data.decode())
+                self.request.settimeout(length//BUFFERSIZE)
+                self.request.sendall('ACK'.encode())
+                cnt=1
+                continue
+            if length-len(recv_data)>len(data):
+                recv_data+=data
+            else:
+                logging.debug("length expand")
+                recv_data+=data
+                if recv_data[length:].decode(errors='ignore')=='Fin':
+                    sync.CONFIG.extractData(name,recv_data[:length])
+                    name=None
+                    recv_data=b''
+                    self.request.sendall('ACK'.encode())
+                    continue
+        time.sleep(0.5)
+        self.request.settimeout(TIMEOUT)
+    
+    def data_sand(self):
+        # send
+        self.request.sendall('SEND'.encode())
+        data=self.request.recv(BUFFERSIZE)
+        if data.decode(errors='ignore')!='ACK':
+            raise ConnectionResetError('ERROR HANDSHAKE')
+        sendname=None
+        cnt=0
+        while True:
+            response=self.dataClipGet()
+            if not response:
+                logging.debug('no cache data')
+                ret=sync.CONFIG.genData()
+                if sendname is not None:
+                    logging.debug(f'Fin {sendname}')
+                    self.request.sendall('Fin'.encode())
+                    data=self.request.recv(BUFFERSIZE)
+                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
+                    if data.decode(errors='ignore')!='ACK':
+                        raise ConnectionResetError('ERROR HANDSHAKE')
+                if ret:
+                    sendname,senddata=ret
+                    bzip=senddata.read()
+                    self.dataClipCache(bzip)
+                    time.sleep(0.5)
+                    logging.debug(f'start {sendname}')
+                    self.request.sendall(sendname.encode())
+                    data=self.request.recv(BUFFERSIZE)
+                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
+                    if data.decode(errors='ignore')!='ACK':
+                        raise ConnectionResetError('ERROR HANDSHAKE')
 
+                    self.request.sendall(str(len(bzip)).encode())
+                    data=self.request.recv(BUFFERSIZE)
+                    self.request.settimeout(len(bzip)//BUFFERSIZE)
+                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
+                    if data.decode(errors='ignore')!='ACK':
+                        raise ConnectionResetError('ERROR HANDSHAKE')
+                    continue
+                else:
+                    time.sleep(0.5)
+                    logging.debug(f'Fin All')
+                    self.request.sendall('FinAll'.encode())
+                    break
+            self.request.sendall(response)
+        self.request.settimeout(TIMEOUT)
 
 # file io
 # config recv
 # config send
 # 
-class ServerHandler(socketserver.BaseRequestHandler):
+class ServerHandler(socketserver.BaseRequestHandler,DataExchange):
     """
     处理客户端请求的请求处理器类。
     """
@@ -75,117 +197,14 @@ class ServerHandler(socketserver.BaseRequestHandler):
 
     def stage_config_exchange(self):
         cacheCfg=sync.CONFIG.send()
-        # recv
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')=='SEND':
-            self.request.sendall('ACK'.encode())
-            logging.debug(f'config exchange handshake success')
-        else:
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        
-        cfg=b''
-        while True:
-            data=self.request.recv(BUFFERSIZE)
-            if data.decode(errors='ignore')!='Fin':
-                cfg+=data
-            else:
-                break
-        sync.CONFIG.merge(cfg.decode(errors='ignore'))
-        
-        self.dataClipCache(cacheCfg.encode())
-        time.sleep(0.5)
-        self.request.sendall('SEND'.encode())
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')!='ACK':
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        while True:
-            response=self.dataClipGet()
-            if not response:
-                time.sleep(0.5)
-                self.request.sendall('Fin'.encode())
-                break
-            self.request.sendall(response)
+        self.cfg_recv()        
+        self.cfg_send(cacheCfg)
     
     def stage_data_exchange(self):
-        #recv
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')=='SEND':
-            self.request.sendall('ACK'.encode())
-        else:
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        name=None
-        length=None
-        recv_data=b''
-        while True:
-            data=self.request.recv(BUFFERSIZE*1024)
-            if name is None:
-                if data.decode(errors='ignore')=='FinAll':
-                    break
-                name=data.decode(errors='ignore')
-                self.request.sendall('ACK'.encode())
-                logging.debug(f'recv {data.decode(errors='ignore')}')
-                data=self.request.recv(BUFFERSIZE)
-                length=int(data.decode())
-                self.request.sendall('ACK'.encode())
-                continue
-            if length-len(recv_data)>len(data):
-                recv_data+=data
-            else:
-                logging.debug("length expand")
-                recv_data+=data
-                if recv_data[length:].decode(errors='ignore')=='Fin':
-                    sync.CONFIG.extractData(name,recv_data[:length])
-                    name=None
-                    recv_data=b''
-                    self.request.sendall('ACK'.encode())
-                    continue
-        time.sleep(0.5)
+        self.data_recv()
+        self.data_sand()        
 
-        # send
-        self.request.sendall('SEND'.encode())
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')!='ACK':
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        sendname=None
-        while True:
-            response=self.dataClipGet()
-            if not response:
-                logging.debug('no cache data')
-                ret=sync.CONFIG.genData()
-                if sendname is not None:
-                    logging.debug(f'Fin {sendname}')
-                    self.request.sendall('Fin'.encode())
-                    data=self.request.recv(BUFFERSIZE)
-                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
-                    if data.decode(errors='ignore')!='ACK':
-                        raise ConnectionResetError('ERROR HANDSHAKE')
-                if ret:
-                    sendname,senddata=ret
-                    bzip=senddata.read()
-                    self.dataClipCache(bzip)
-                    time.sleep(0.5)
-                    logging.debug(f'start {sendname}')
-                    self.request.sendall(sendname.encode())
-                    data=self.request.recv(BUFFERSIZE)
-                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
-                    if data.decode(errors='ignore')!='ACK':
-                        raise ConnectionResetError('ERROR HANDSHAKE')
-
-                    self.request.sendall(str(len(bzip)).encode())
-                    data=self.request.recv(BUFFERSIZE)
-                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
-                    if data.decode(errors='ignore')!='ACK':
-                        raise ConnectionResetError('ERROR HANDSHAKE')
-                    continue
-                else:
-                    time.sleep(0.5)
-                    logging.debug(f'Fin All')
-                    self.request.sendall('FinAll'.encode())
-                    break
-            self.request.sendall(response)
-        
-
-class ClientHandler:
+class ClientHandler(DataExchange):
     """
     处理客户端请求的请求处理器类。
     """
@@ -217,7 +236,7 @@ class ClientHandler:
             return False
         if len(self.cache)<=0:
             return False
-        length=(BUFFERSIZE-1) if len(self.cache)>(BUFFERSIZE-1) else len(self.cache)
+        length=(BUFFERSIZE) if len(self.cache)>(BUFFERSIZE) else len(self.cache)
         ret=copy.deepcopy(self.cache[:length])
         del self.cache[:length]
         return ret
@@ -235,110 +254,14 @@ class ClientHandler:
 
     def stage_config_exchange(self):
         cacheCfg=sync.CONFIG.send()
-        self.dataClipCache(cacheCfg.encode())
-        time.sleep(0.5)
-        self.request.sendall('SEND'.encode())
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')!='ACK':
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        while True:
-            response=self.dataClipGet()
-            if not response:
-                time.sleep(0.5)
-                self.request.sendall('Fin'.encode())
-                break
-            self.request.sendall(response)
-        data=self.request.recv(BUFFERSIZE)
-        cfg=b''
-        if data.decode(errors='ignore')=='SEND':
-            self.request.sendall('ACK'.encode())
-        else:
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        while True:
-            data=self.request.recv(BUFFERSIZE)
-            if data.decode(errors='ignore')!='Fin':
-                cfg+=data
-            else:
-                break
-        sync.CONFIG.merge(cfg.decode(errors='ignore'))
-
-  
+        self.cfg_send(cacheCfg)
+        self.cfg_recv()        
+        
+    
     def stage_data_exchange(self):
-        # send
-        self.request.sendall('SEND'.encode())
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')!='ACK':
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        sendname=None
-        while True:
-            response=self.dataClipGet()
-            if not response:
-                logging.debug('no cache data')
-                ret=sync.CONFIG.genData()
-                if sendname is not None:
-                    logging.debug(f'Fin {sendname}')
-                    self.request.sendall('Fin'.encode())
-                    data=self.request.recv(BUFFERSIZE)
-                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
-                    if data.decode(errors='ignore')!='ACK':
-                        raise ConnectionResetError('ERROR HANDSHAKE')
-                if ret:
-                    sendname,senddata=ret
-                    bzip=senddata.read()
-                    self.dataClipCache(bzip)
-                    time.sleep(0.5)
-                    logging.debug(f'start {sendname}')
-                    self.request.sendall(sendname.encode())
-                    data=self.request.recv(BUFFERSIZE)
-                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
-                    if data.decode(errors='ignore')!='ACK':
-                        raise ConnectionResetError('ERROR HANDSHAKE')
-
-                    self.request.sendall(str(len(bzip)).encode())
-                    data=self.request.recv(BUFFERSIZE)
-                    logging.debug(f"recv ack {data.decode(errors='ignore')}")
-                    if data.decode(errors='ignore')!='ACK':
-                        raise ConnectionResetError('ERROR HANDSHAKE')
-                    continue
-                else:
-                    time.sleep(0.5)
-                    logging.debug(f'Fin All')
-                    self.request.sendall('FinAll'.encode())
-                    break
-            self.request.sendall(response)
-        #recv
-        data=self.request.recv(BUFFERSIZE)
-        if data.decode(errors='ignore')=='SEND':
-            self.request.sendall('ACK'.encode())
-        else:
-            raise ConnectionResetError('ERROR HANDSHAKE')
-        name=None
-        length=None
-        recv_data=b''
-        while True:
-            data=self.request.recv(BUFFERSIZE*1024)
-            if name is None:
-                if data.decode(errors='ignore')=='FinAll':
-                    break
-                name=data.decode(errors='ignore')
-                self.request.sendall('ACK'.encode())
-                logging.debug(f'recv {data.decode(errors='ignore')}')
-                data=self.request.recv(BUFFERSIZE)
-                length=int(data.decode())
-                self.request.sendall('ACK'.encode())
-                continue
-            if length-len(recv_data)>len(data):
-                recv_data+=data
-            else:
-                logging.debug("length expand")
-                recv_data+=data
-                if recv_data[length:].decode(errors='ignore')=='Fin':
-                    sync.CONFIG.extractData(name,recv_data[:length])
-                    name=None
-                    recv_data=b''
-                    self.request.sendall('ACK'.encode())
-                    continue
-        time.sleep(0.5)
+        self.data_sand()
+        self.data_recv()
+          
 
 
 class DualStackTCPServer(socketserver.TCPServer):
@@ -381,25 +304,25 @@ class TCPHandler:
         """主动连接到其他服务器"""
         ret=False
         logging.debug(f'connect to {target_host}:{target_port}')
-        # try:
-        while ServerHandler.connect_flag!=0:
-            time.sleep(5)
-        ServerHandler.connect_flag=2
-        if ':' in target_host:
-            client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        else:
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((target_host, target_port))
-        print(f"Connected to {target_host}:{target_port}")
-        ClientHandler(client_socket).handle()
-        ret=True
+        try:
+            while ServerHandler.connect_flag!=0:
+                time.sleep(5)
+            ServerHandler.connect_flag=2
+            if ':' in target_host:
+                client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                client_socket.connect((target_host, target_port,0,0))
+            else:
+                client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                client_socket.connect((target_host, target_port))
+            ClientHandler(client_socket).handle()
+            ret=True
         # return ret
-        # except (socket.timeout, ConnectionRefusedError, OSError,ConnectionResetError) as e:
-        #     print(f"Failed to connect to {target_host}:{target_port} - {e}")
-        #     ret=False
-        # finally:
-        ServerHandler.connect_flag=0
-        return ret
+        except (socket.timeout, ConnectionRefusedError, OSError,ConnectionResetError) as e:
+            print(f"Failed to connect to {target_host}:{target_port} - {e}")
+            ret=False
+        finally:
+            ServerHandler.connect_flag=0
+            return ret
         
     def run_connect(self):
         iplists=sync.CONFIG.genAvailableIp()
