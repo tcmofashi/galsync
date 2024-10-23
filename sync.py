@@ -318,6 +318,7 @@ class Config:
         zipf=zipfile.ZipFile(io.BytesIO(iobyte),'r',)
         path=self.origin_cfg[self.enableUserName]['filemap'][name]['path'][self.local_devicename]
         shutil.rmtree(path)
+        os.makedirs(path,exist_ok=True)
         zipf.extractall(path,)
         zipf.close()
         self.datacfg[name]='recv_fin'
