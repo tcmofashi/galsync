@@ -65,25 +65,25 @@ def get_root_folder_name(iostream):
 
 config_template={
     'tcmofashi':{
-    'username':'tcmofashi',
-    'devicename':'test1',
+    'username':'none',
+    'devicename':'test',
     'ipv4':{
         # 'test1':[['10.42.0.32','60721']],
         # 'server':['10.42.0.1'] #save for test
     },
     'ipv6':{
-        'test1':[],
+        # 'test1':[],
         # 'server':['2001:da8:b801:285e:78b6:2427:99e7:56ec'],
     },
     'filemap':{
-            '1':{
-         'path':{
-         'test1':r"/home/tcmofashi/proj/galsync/test1/1",
-         # 'server':r'/mnt/E/ATRI -My Dear Moments-', # get from remote
-         },
-         'mtime':{},
-         'mode':'newest' # mode:'devicename' or 'newest',empty path won't be origin
-         }
+        #     '1':{
+        #  'path':{
+        #  'test1':r"/home/tcmofashi/proj/galsync/test1/1",
+        #  # 'server':r'/mnt/E/ATRI -My Dear Moments-', # get from remote
+        #  },
+        #  'mtime':{},
+        #  'mode':'newest' # mode:'devicename' or 'newest',empty path won't be origin
+        #  }
     }
     }
 }
@@ -176,8 +176,6 @@ class Config:
             self.origin_cfg[user]['username']=self.yaml_cfg[user]['username']
             self.origin_cfg[user]['devicename']=self.yaml_cfg[user]['devicename']
 
-            # self.yaml_cfg[user]['localipv4']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:not x.startswith('127.'),self.local_ip['ipv4']))))
-            # self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:x!='::1',self.local_ip['ipv6']))))
             self.yaml_cfg[user]['localipv4']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:not x.startswith('127.'),self.local_ip['ipv4']))))
             self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:(x!='::1') and (not x.startswith('fe80')),self.local_ip['ipv6']))))
 
@@ -190,7 +188,7 @@ class Config:
                 if f['name'] in self.origin_cfg[user]['filemap'].keys():
                     self.origin_cfg[user]['filemap'][f['name']]['path'][self.devicename]=f['path']
                     self.origin_cfg[user]['filemap'][f['name']]['mode']=f['mode']
-                    self.origin_cfg[user]['filemap'][f['name']]['mtime']={}
+                    # self.origin_cfg[user]['filemap'][f['name']]['mtime']
                 else:
                     self.origin_cfg[user]['filemap'][f['name']]={
                         'path':{
@@ -199,6 +197,12 @@ class Config:
                         'mode':f['mode'],
                         'mtime':{}
                     }
+            for f_key in self.origin_cfg[user]['filemap'].keys():
+                if f_key not in list(map(lambda x:x['name'],self.yaml_cfg[user]['filemap'])):
+                    if self.origin_cfg[user]['devicename'] in self.origin_cfg[user]['filemap'][f_key]['path'].keys():
+                        del self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]
+                    if self.origin_cfg[user]['devicename'] in self.origin_cfg[user]['filemap'][f_key]['mtime'].keys():
+                        del self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]
         with open('./sync.json','w',encoding='utf-8') as fp:
             json.dump(self.origin_cfg,fp)
 
