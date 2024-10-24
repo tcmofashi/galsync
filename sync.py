@@ -271,31 +271,59 @@ class Config:
                 return False
             self.origin_cfg[k]['ipv4'][others_config[k]['devicename']]=others_config[k]['ipv4'][others_config[k]['devicename']]
             self.origin_cfg[k]['ipv6'][others_config[k]['devicename']]=others_config[k]['ipv6'][others_config[k]['devicename']]
-            for f_key in others_config[k]['filemap'].keys():
-                if f_key not in self.origin_cfg[k]['filemap'].keys():
-                    self.origin_cfg[k]['filemap'][f_key]=others_config[k]['filemap'][f_key]
-                    # self.origin_cfg[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]
-                    if self.global_config['cacheAll']:
-                        os.makedirs(os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key),exist_ok=True)
-                        self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]=os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key)
-                        self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]=datetime.datetime.now().isoformat()
-                    else:
-                        if self.origin_cfg[k]['devicename'] in self.origin_cfg[k]['filemap'][f_key]['path'].keys():
-                            del self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]
-                        if self.origin_cfg[k]['devicename'] in self.origin_cfg[k]['filemap'][f_key]['mtime'].keys():
-                            del self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]  
-
-
-                else:
-                    self.origin_cfg[k]['filemap'][f_key]['path'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['path'][others_config[k]['devicename']]
-                    self.origin_cfg[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]
-            for f_key in self.origin_cfg[k]['filemap'].keys():
-                if f_key in others_config[k]['filemap'].keys():
-                    continue
-                if others_config[k]['devicename'] in self.origin_cfg[k]['filemap'][f_key]['path'].keys():
-                    del self.origin_cfg[k]['filemap'][f_key]['path'][others_config[k]['devicename']]
-                if others_config[k]['devicename'] in self.origin_cfg[k]['filemap'][f_key]['mtime'].keys():
-                    del self.origin_cfg[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]
+            fkeys_remote=list(others_config[k]['filemap'].keys())
+            fkeys_local=list(self.origin_cfg[k]['filemap'].keys())
+            all_fkeys=list(set(fkeys_local+fkeys_remote))
+            for f_key in all_fkeys:
+                if f_key in fkeys_remote and f_key in fkeys_local:
+                    all_devs=list(set(list(others_config[k]['filemap'][f_key]['path'].keys())+list(self.origin_cfg[k]['filemap'][f_key]['path'].keys())))
+                    devs_local=list(self.origin_cfg[k]['filemap'][f_key]['path'].keys())
+                    devs_remote=list(others_config[k]['filemap'][f_key]['path'].keys())
+                    for dev in all_devs:
+                        if dev in devs_local and dev in devs_remote:
+                            if dev==self.origin_cfg[k]['devicename']:
+                                continue
+                            elif dev==others_config[k]['devicename']:
+                                self.origin_cfg[k]['filemap'][f_key]['path'][dev]=others_config[k]['filemap'][f_key]['path'][dev]
+                                self.origin_cfg[k]['filemap'][f_key]['mtime'][dev]=others_config[k]['filemap'][f_key]['mtime'][dev]
+                            elif datetime.datetime.fromisoformat(self.origin_cfg[k]['filemap'][f_key]['mtime'][dev])\
+                                <=datetime.datetime.fromisoformat(others_config[k]['filemap'][f_key]['mtime'][dev]):
+                                self.origin_cfg[k]['filemap'][f_key]['path'][dev]=others_config[k]['filemap'][f_key]['path'][dev]
+                                self.origin_cfg[k]['filemap'][f_key]['mtime'][dev]=others_config[k]['filemap'][f_key]['mtime'][dev]
+                        elif dev in devs_local and not (dev in devs_remote):
+                            if dev==others_config[k]['devicename']:
+                                del self.origin_cfg[k]['filemap'][f_key]['path'][dev]
+                                del self.origin_cfg[k]['filemap'][f_key]['mtime'][dev]
+                        elif dev in devs_remote and not (dev in devs_local):
+                            if dev==self.origin_cfg[k]['devicename']:
+                                continue
+                            else:
+                                self.origin_cfg[k]['filemap'][f_key]['path'][dev]=others_config[k]['filemap'][f_key]['path'][dev]
+                                self.origin_cfg[k]['filemap'][f_key]['mtime'][dev]=others_config[k]['filemap'][f_key]['mtime'][dev]
+                elif f_key in fkeys_remote and not (f_key in fkeys_local):
+                    self.origin_cfg[k]['filemap'][f_key]={
+                        'path':{},
+                        'mtime':{},
+                        'mode':others_config[k]['filemap'][f_key]['mode']
+                    }
+                    devs_remote=list(others_config[k]['filemap'][f_key]['path'].keys())
+                    for dev in devs_remote:
+                        if dev==self.origin_cfg[k]['devicename']:
+                            continue
+                        elif dev==others_config[k]['devicename']:
+                            if self.global_config['cacheAll']:
+                                os.makedirs(os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key),exist_ok=True)
+                                self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]=os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key)
+                                self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]=datetime.datetime.fromtimestamp(1).isoformat()
+                        else:
+                            self.origin_cfg[k]['filemap'][f_key]['path'][dev]=others_config[k]['filemap'][f_key]['path'][dev]
+                            self.origin_cfg[k]['filemap'][f_key]['mtime'][dev]=others_config[k]['filemap'][f_key]['mtime'][dev]
+                elif not (f_key in fkeys_remote) and f_key in fkeys_local:
+                    devs_local=list(self.origin_cfg[k]['filemap'][f_key]['path'].keys())
+                    for dev in devs_local:
+                        if dev==others_config[k]['devicename']:
+                            del self.origin_cfg[k]['filemap'][f_key]['path'][dev]
+                            del self.origin_cfg[k]['filemap'][f_key]['mtime'][dev]
         self.remote_devicename=others_config[self.enableUserName]['devicename']
         self.local_devicename=self.origin_cfg[self.enableUserName]['devicename']
         self.genDataCfg()
