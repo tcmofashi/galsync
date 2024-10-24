@@ -194,7 +194,7 @@ class Config:
                 else:
                     self.origin_cfg[user]['filemap'][f['name']]={
                         'path':{
-                            self.username:f['path']
+                            self.devicename:f['path']
                         },
                         'mode':f['mode'],
                         'mtime':{}
@@ -262,6 +262,7 @@ class Config:
                     self.origin_cfg[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]
 
                     if self.global_config['cacheAll']:
+                        os.makedirs(os.path.join(os.path.normpath(self.global_config['cacheDir']),f_key),exist_ok=True)
                         self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]=os.path.join(os.path.normpath(self.global_config['cacheDir']),f_key)
                         self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]=datetime.datetime.now().isoformat()
 
