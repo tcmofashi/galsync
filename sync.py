@@ -362,7 +362,7 @@ class Config:
                     defaultipv6.pop(defaultipv6.index(ipaddr))
             v4.append(self.origin_cfg[self.enableUserName]['ipv4'][key])
             v6.append(self.origin_cfg[self.enableUserName]['ipv6'][key])
-        print([defaultipv4,defaultipv6,v4,v6])
+        # print([defaultipv4,defaultipv6,v4,v6])
         return [defaultipv4,defaultipv6,v4,v6] #[[ip1,ip2,...],[ip1,ip2,...],...]
         
         
