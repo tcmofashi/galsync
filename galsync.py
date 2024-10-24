@@ -337,20 +337,51 @@ class TCPHandler:
                         break
 
 
+class loop:
+    run_flag=0
+    def __init__(self,handler,delay) -> None:
+        self.handler=handler
+        self.delay=delay
+    def sync_loop(self):
+        while self.run_flag==1:
+            self.handler.run_connect()
+            if self.run_flag!=1:
+                break
+            time.sleep(self.delay)
 
-
-# 使用示例
 if __name__ == "__main__":
     handler = TCPHandler()
     handler.start_server()
     
     try:
+        loop_thread=None
         while True:
             cmd = input("Enter command (or 'stop' to stop the server): ")
             if cmd.lower() == 'stop':
+                if loop_thread is not None:
+                    loop.run_flag=0
                 handler.stop_server()
                 break
             elif cmd.lower()=='sync':
                 handler.run_connect()
+            elif cmd.lower().startswith('sync'):
+                if loop.run_flag==1:
+                    print('sync loop is running!')
+                    continue
+                delay=cmd.split(' ')[1]
+                if delay=='stop':
+                    loop.run_flag=0
+                    continue
+                try:
+                    delay=int(delay)
+                except:
+                    print('usage:sync <seconds> or sync stop')
+                    continue
+                lp=loop(handler,delay)
+                loop.run_flag=1
+                loop_thread=threading.Thread(target=lp.sync_loop())
+                loop_thread.start()
+
+                
     except KeyboardInterrupt:
         handler.stop_server()
