@@ -215,13 +215,14 @@ class Config:
     def send(self,username=None):
         for user in self.origin_cfg.keys():
             for f_key in self.origin_cfg[user]['filemap'].keys():
-                if len(os.listdir(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]))==0:
-                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
-                                                    ['path'][self.origin_cfg[user]['devicename']],oldest=True)
-                else:
-                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
-                        get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
-                                                        ['path'][self.origin_cfg[user]['devicename']])
+                if self.origin_cfg[user]['devicename'] in self.origin_cfg[user]['filemap'][f_key]['path'].keys():
+                    if len(os.listdir(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]))==0:
+                        self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                        ['path'][self.origin_cfg[user]['devicename']],oldest=True)
+                    else:
+                        self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
+                            get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                            ['path'][self.origin_cfg[user]['devicename']])
 
         if username is None:
             return json.dumps({'username':self.enableUserName,'data':self.origin_cfg})
@@ -232,13 +233,14 @@ class Config:
     def merge(self,recv_data):
         for user in self.origin_cfg.keys():
             for f_key in self.origin_cfg[user]['filemap'].keys():
-                if len(os.listdir(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]))==0:
-                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
-                                                    ['path'][self.origin_cfg[user]['devicename']],oldest=True)
-                else:
-                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
-                        get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
-                                                        ['path'][self.origin_cfg[user]['devicename']])
+                if self.origin_cfg[user]['devicename'] in self.origin_cfg[user]['filemap'][f_key]['path'].keys():
+                    if len(os.listdir(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]))==0:
+                        self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                        ['path'][self.origin_cfg[user]['devicename']],oldest=True)
+                    else:
+                        self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
+                            get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                            ['path'][self.origin_cfg[user]['devicename']])
 
 
         recv_cfg=json.loads(recv_data)
