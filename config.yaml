@@ -15,11 +15,11 @@ tcmofashi:
     name: '4'
     path: /home/tcmofashi/proj/galsync/test1/4
   localipv4:
-  - - 10.42.0.32
+  - - 192.168.0.32
     - 60721
   localipv6: []
   remoteipv4:
-  - - 10.42.0.32
-    - 50721
+  - - 192.168.0.1
+    - 60721
   remoteipv6: []
   username: tcmofashi
