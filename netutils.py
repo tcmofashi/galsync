@@ -196,8 +196,8 @@ class ServerHandler(socketserver.BaseRequestHandler,DataExchange):
 
 
     def stage_config_exchange(self):
-        cacheCfg=sync.CONFIG.send()
-        self.cfg_recv()        
+        self.cfg_recv() 
+        cacheCfg=sync.CONFIG.send()       
         self.cfg_send(cacheCfg)
     
     def stage_data_exchange(self):

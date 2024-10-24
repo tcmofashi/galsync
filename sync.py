@@ -12,7 +12,7 @@ import netifaces
 import logging
 
 
-def get_folder_modification_time(folder_path):
+def get_folder_modification_time(folder_path,oldest=False):
     """
     获取文件夹的最后修改时间，并将其转换为 ISO 8601 格式的字符串。
     """
@@ -20,6 +20,8 @@ def get_folder_modification_time(folder_path):
     modification_time_timestamp = os.path.getmtime(folder_path)
     # 将时间戳转换为 datetime 对象
     modification_time_datetime = datetime.datetime.fromtimestamp(modification_time_timestamp)
+    if oldest:
+        modification_time_datetime = datetime.datetime.fromtimestamp(1)
     # 将 datetime 对象转换为 ISO 8601 格式的字符串
     modification_time_iso = modification_time_datetime.isoformat()
     return modification_time_iso
@@ -213,9 +215,13 @@ class Config:
     def send(self,username=None):
         for user in self.origin_cfg.keys():
             for f_key in self.origin_cfg[user]['filemap'].keys():
-                self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
-                    get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
-                                                    ['path'][self.origin_cfg[user]['devicename']])
+                if len(os.listdir(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]))==0:
+                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                    ['path'][self.origin_cfg[user]['devicename']],oldest=True)
+                else:
+                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
+                        get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                        ['path'][self.origin_cfg[user]['devicename']])
 
         if username is None:
             return json.dumps({'username':self.enableUserName,'data':self.origin_cfg})
@@ -226,7 +232,14 @@ class Config:
     def merge(self,recv_data):
         for user in self.origin_cfg.keys():
             for f_key in self.origin_cfg[user]['filemap'].keys():
-                self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']])
+                if len(os.listdir(self.origin_cfg[user]['filemap'][f_key]['path'][self.origin_cfg[user]['devicename']]))==0:
+                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                    ['path'][self.origin_cfg[user]['devicename']],oldest=True)
+                else:
+                    self.origin_cfg[user]['filemap'][f_key]['mtime'][self.origin_cfg[user]['devicename']]=\
+                        get_folder_modification_time(self.origin_cfg[user]['filemap'][f_key]\
+                                                        ['path'][self.origin_cfg[user]['devicename']])
+
 
         recv_cfg=json.loads(recv_data)
         others_config=recv_cfg['data']
@@ -259,12 +272,17 @@ class Config:
             for f_key in others_config[k]['filemap'].keys():
                 if f_key not in self.origin_cfg[k]['filemap'].keys():
                     self.origin_cfg[k]['filemap'][f_key]=others_config[k]['filemap'][f_key]
-                    self.origin_cfg[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]
-
+                    # self.origin_cfg[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['mtime'][others_config[k]['devicename']]
                     if self.global_config['cacheAll']:
-                        os.makedirs(os.path.join(os.path.normpath(self.global_config['cacheDir']),f_key),exist_ok=True)
-                        self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]=os.path.join(os.path.normpath(self.global_config['cacheDir']),f_key)
+                        os.makedirs(os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key),exist_ok=True)
+                        self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]=os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key)
                         self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]=datetime.datetime.now().isoformat()
+                    else:
+                        if self.origin_cfg[k]['devicename'] in self.origin_cfg[k]['filemap'][f_key]['path'].keys():
+                            del self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]
+                        if self.origin_cfg[k]['devicename'] in self.origin_cfg[k]['filemap'][f_key]['mtime'].keys():
+                            del self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]  
+
 
                 else:
                     self.origin_cfg[k]['filemap'][f_key]['path'][others_config[k]['devicename']]=others_config[k]['filemap'][f_key]['path'][others_config[k]['devicename']]
@@ -288,7 +306,7 @@ class Config:
         for key in filemap.keys():
             if self.local_devicename not in filemap[key]['path'].keys() or self.remote_devicename not in filemap[key]['path'].keys():
                 continue
-            if datetime.datetime.fromisoformat(filemap[key]['mtime'][self.local_devicename])<=datetime.datetime.fromisoformat(filemap[key]['mtime'][self.remote_devicename]):
+            if datetime.datetime.fromisoformat(filemap[key]['mtime'][self.local_devicename])>=datetime.datetime.fromisoformat(filemap[key]['mtime'][self.remote_devicename]):
                 self.datacfg[key]='send'
             else:
                 self.datacfg[key]='recv'
