@@ -179,7 +179,7 @@ class Config:
             self.origin_cfg[user]['devicename']=self.yaml_cfg[user]['devicename']
 
             self.yaml_cfg[user]['localipv4']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:not x.startswith('127.'),self.local_ip['ipv4']))))
-            self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:(x!='::1') and (not x.startswith('fe80')),self.local_ip['ipv6']))))
+            self.yaml_cfg[user]['localipv6']=list(map(lambda x:[x,self.defaultPort],list(filter(lambda x:(x!='::1') and (not x.startswith('fe')) and (not x.startswith('fd')),self.local_ip['ipv6']))))
 
             self.origin_cfg[user]['ipv4'][self.origin_cfg[user]['devicename']]=self.yaml_cfg[user]['localipv4']
             self.origin_cfg[user]['ipv6'][self.origin_cfg[user]['devicename']]=self.yaml_cfg[user]['localipv6']
