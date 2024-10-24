@@ -184,6 +184,8 @@ class Config:
 
             self.username= self.origin_cfg[user]['username']
             self.devicename=self.origin_cfg[user]['devicename']
+            if self.yaml_cfg[user]['filemap'] is None:
+                self.yaml_cfg[user]['filemap']=[]
             for f in self.yaml_cfg[user]['filemap']:
                 if f['name'] in self.origin_cfg[user]['filemap'].keys():
                     self.origin_cfg[user]['filemap'][f['name']]['path'][self.devicename]=f['path']
