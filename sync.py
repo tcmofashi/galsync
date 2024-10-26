@@ -277,6 +277,11 @@ class Config:
             for f_key in all_fkeys:
                 if f_key in fkeys_remote and f_key in fkeys_local:
                     all_devs=list(set(list(others_config[k]['filemap'][f_key]['path'].keys())+list(self.origin_cfg[k]['filemap'][f_key]['path'].keys())))
+                    if self.origin_cfg[k]['devicename'] not in all_devs:
+                        if self.global_config['cacheAll']:
+                                os.makedirs(os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key),exist_ok=True)
+                                self.origin_cfg[k]['filemap'][f_key]['path'][self.origin_cfg[k]['devicename']]=os.path.join(os.path.normpath(self.global_config['cacheDir']),k,f_key)
+                                self.origin_cfg[k]['filemap'][f_key]['mtime'][self.origin_cfg[k]['devicename']]=datetime.datetime.fromtimestamp(1).isoformat()
                     devs_local=list(self.origin_cfg[k]['filemap'][f_key]['path'].keys())
                     devs_remote=list(others_config[k]['filemap'][f_key]['path'].keys())
                     for dev in all_devs:

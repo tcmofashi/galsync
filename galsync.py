@@ -330,10 +330,14 @@ class TCPHandler:
             iplist=iplists[i]
             for server in iplist:
                 self.connect_to_server(server[0],server[1])
-        for i in range(2,4):
-            for device_ips in iplists[i]:
+        rec_idx=[]
+        for i in range(2,4):    
+            for j,device_ips in enumerate(iplists[i]):
+                if j in rec_idx:
+                    continue
                 for ip in device_ips:
                     if self.connect_to_server(ip[0],ip[1]):
+                        rec_idx.append(j)
                         break
 
 
